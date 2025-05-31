@@ -1,6 +1,7 @@
 package com.example.lab08.data
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
@@ -19,4 +20,7 @@ interface TaskDao {
 
     @Query("DELETE FROM tasks")
     suspend fun deleteAllTasks()
+
+    @Delete
+    suspend fun deleteTask(task: Task)
 }

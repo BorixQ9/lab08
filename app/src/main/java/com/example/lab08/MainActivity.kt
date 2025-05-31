@@ -14,6 +14,7 @@ import com.example.lab08.data.TaskDatabase
 import com.example.lab08.viewmodel.TaskViewModel
 import kotlinx.coroutines.launch
 import com.example.lab08.ui.theme.Lab08Theme
+import com.example.lab08.data.Task
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,13 +22,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Lab08Theme {
+                // Crea la base de datos y el DAO
                 val db = Room.databaseBuilder(
                     applicationContext,
                     TaskDatabase::class.java,
                     "task_db"
                 ).build()
                 val taskDao = db.taskDao()
-                val viewModel = TaskViewModel(taskDao)
+                // Inicializa el ViewModel directamente (sin factory)
+                val viewModel = remember { TaskViewModel(taskDao) }
+
                 TaskScreen(viewModel)
             }
         }
@@ -39,6 +43,9 @@ fun TaskScreen(viewModel: TaskViewModel) {
     val tasks by viewModel.tasks.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     var newTaskDescription by remember { mutableStateOf("") }
+
+    var editingTask by remember { mutableStateOf<Task?>(null) }
+    var editedDescription by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -69,16 +76,62 @@ fun TaskScreen(viewModel: TaskViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         tasks.forEach { task ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
             ) {
-                Text(text = task.description)
-                Button(onClick = { viewModel.toggleTaskCompletion(task) }) {
-                    Text(if (task.isCompleted) "Completada" else "Pendiente")
+                if (editingTask == task) {
+                    TextField(
+                        value = editedDescription,
+                        onValueChange = { editedDescription = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Button(onClick = {
+                            viewModel.editTask(task, editedDescription)
+                            editingTask = null
+                            editedDescription = ""
+                        }) {
+                            Text("Guardar")
+                        }
+                        Button(onClick = {
+                            editingTask = null
+                            editedDescription = ""
+                        }) {
+                            Text("Cancelar")
+                        }
+                    }
+                } else {
+                    Text(
+                        text = task.description,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Button(onClick = { viewModel.toggleTaskCompletion(task) }) {
+                            Text(if (task.isCompleted) "Completada" else "Pendiente")
+                        }
+                        Button(onClick = {
+                            editingTask = task
+                            editedDescription = task.description
+                        }) {
+                            Text("Editar")
+                        }
+                        Button(onClick = { viewModel.deleteTask(task) }) {
+                            Text("Eliminar")
+                        }
+                    }
                 }
             }
         }
+
+
 
         Button(
             onClick = { coroutineScope.launch { viewModel.deleteAllTasks() } },
